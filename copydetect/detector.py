@@ -307,7 +307,7 @@ class CopyDetector:
         directories. Used to search test_dirs, ref_dirs, and
         boilerplate_dirs
         """
-        file_list = []
+        file_list = set()
         for dir in dirs:
             print_warning = True
             for ext in exts:
@@ -319,12 +319,11 @@ class CopyDetector:
 
                 if len(files) > 0:
                     print_warning = False
-                file_list.extend(files)
+                file_list.update(files)
             if print_warning:
                 logging.warning("No files found in " + dir)
 
-        # convert to a set to remove duplicates, then back to a list
-        return list(set(file_list))
+        return list(file_list)
 
     def add_file(self, filename, type="testref"):
         """Adds a file to the list of test files, reference files, or
@@ -388,14 +387,20 @@ class CopyDetector:
         actually used.
         """
         self._boilerplate_hashes = self._get_boilerplate_hashes()
-        file_set = set(file_list)
-        with Pool(self.conf.processes) as p:
-            code_hash_iterator = p.imap_unordered(self._preprocess_code_file, file_set, 4)
-            code_hashes = list(tqdm(code_hash_iterator, bar_format= '   {l_bar}{bar}{r_bar}',
-                            disable=self.conf.silent, total=len(file_set)))
-        for code_f, fingerprint in code_hashes:
-            if fingerprint != None:
-                self.file_data[code_f] = fingerprint
+        if self.conf.processes > 1:
+            with Pool(self.conf.processes) as p:
+                code_hash_iterator = p.imap_unordered(self._preprocess_code_file, file_list, 4)
+                code_hashes = list(tqdm(code_hash_iterator, bar_format= '   {l_bar}{bar}{r_bar}',
+                                disable=self.conf.silent, total=len(file_list)))
+            for code_f, fingerprint in code_hashes:
+                if fingerprint != None:
+                    self.file_data[code_f] = fingerprint
+        else:
+            for code_f in tqdm(file_list, bar_format= '   {l_bar}{bar}{r_bar}',
+                                disable=self.conf.silent):
+                _, fingerprint = self._preprocess_code_file(code_f)
+                if fingerprint is not None:
+                    self.file_data[code_f] = fingerprint
 
     def _comparison_loop(self):
         """The core code used to determine code overlap. The overlap

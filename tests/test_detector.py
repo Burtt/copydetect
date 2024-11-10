@@ -245,3 +245,15 @@ class TestParameters():
 
         # make sure utf-16 file was loaded correctly
         assert len(list(detector.file_data.values())[0].raw_code) > 0
+
+    def test_multiprocessing(self):
+        # this doesn't currently verify that multiprocessing is being
+        # used, just that enabling it doesn't break anything
+        detector = CopyDetector(
+            test_dirs=[TESTS_DIR + "/sample_py/boilerplate"],
+            noise_t=10, guarantee_t=10, silent=True, processes=4)
+        detector.add_file(str(Path(TESTS_DIR + "/sample_py/handout.py")))
+        detector.run()
+        code_list = detector.get_copied_code_list()
+
+        assert len(code_list) == 1
