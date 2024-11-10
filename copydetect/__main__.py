@@ -93,6 +93,8 @@ def main():
                         "varying encodings, --encoding DETECT can be used to "
                         "detect the encoding of all files (requires the "
                         "chardet package)")
+    parser.add_argument("-j", "--processes", default=defaults.PROCESSES, type=int,
+                        help="number of sub-processes to use")
     args = parser.parse_args()
 
     if args.conf:
@@ -118,6 +120,7 @@ def main():
           "out_file" : args.out_file,
           "css_files": args.css_files,
           "encoding": args.encoding,
+          "processes": args.processes,
         }
     else:
         parser.error("either a path to a configuration file (-c) or a "

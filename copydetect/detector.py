@@ -246,6 +246,8 @@ class CopyDetector:
         Text encoding to use for reading the file. If "DETECT", the
         chardet library will be used (if installed) to automatically
         detect file encoding
+    processes : int
+        Number of sub-processes to use.
     """
     def __init__(self, test_dirs=None, ref_dirs=None,
                  boilerplate_dirs=None, extensions=None,
@@ -255,7 +257,7 @@ class CopyDetector:
                  same_name_only=False, ignore_leaf=False, autoopen=True,
                  disable_filtering=False, force_language=None,
                  truncate=False, out_file="./report.html", css_files=None,
-                 silent=False, encoding: str = "utf-8"):
+                 silent=False, encoding: str = "utf-8", processes=defaults.PROCESSES):
         conf_args = locals()
         conf_args = {
             key: val

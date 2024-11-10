@@ -29,6 +29,7 @@ class CopydetectConfig:
     css_files: List[str] = field(default_factory=lambda: [])
     silent: bool = False
     encoding: str = "utf-8"
+    processes: int = defaults.PROCESSES
 
     window_size: int = field(init=False, default=guarantee_t - noise_t + 1)
     short_names: ClassVar[Dict[str, str]] = {
@@ -77,7 +78,7 @@ class CopydetectConfig:
                 raise TypeError("Guarantee threshold must be an integer")
         if not isinstance(self.css_files, list):
             raise TypeError("Linked CSS entries must be a list")
-        
+
         # value checking
         if self.guarantee_t < self.noise_t:
             raise ValueError(
@@ -86,6 +87,8 @@ class CopydetectConfig:
             )
         if self.display_t > 1 or self.display_t < 0:
             raise ValueError("Display threshold must be between 0 and 1")
+        if self.processes <= 0:
+            raise ValueError("Threads must be greater than 1")
         if not Path(self.out_file).parent.exists():
             raise ValueError(
                 "Invalid output file path (directory does not exist)"
