@@ -3,6 +3,7 @@ a set of test files (files to check for plagairism) and a set of
 reference files (files that might have been plagairised from).
 """
 
+from multiprocessing import Pool
 from pathlib import Path
 import time
 import logging
@@ -281,6 +282,7 @@ class CopyDetector:
         self.token_overlap_matrix = np.array([])
         self.slice_matrix = {}
         self.file_data = {}
+        self._boilerplate_hashes = None
 
     @classmethod
     def from_config(cls, config):
@@ -369,24 +371,31 @@ class CopyDetector:
 
         return np.unique(np.array(boilerplate_hashes))
 
+    def _preprocess_code_file(self, code_f):
+        """Generates a CodeFingerprint object for a single file."""
+        try:
+            return (code_f, CodeFingerprint(
+                code_f, self.conf.noise_t, self.conf.window_size,
+                self._boilerplate_hashes, not self.conf.disable_filtering,
+                self.conf.force_language, encoding=self.conf.encoding))
+        except UnicodeDecodeError:
+            logging.warning(f"Skipping {code_f}: file not UTF-8 text")
+            return (code_f, None)
+
     def _preprocess_code(self, file_list):
         """Generates a CodeFingerprint object for each file in the
         provided file list. This is where the winnowing algorithm is
         actually used.
         """
-        boilerplate_hashes = self._get_boilerplate_hashes()
-        for code_f in tqdm(file_list, bar_format= '   {l_bar}{bar}{r_bar}',
-                           disable=self.conf.silent):
-            if code_f not in self.file_data:
-                try:
-                    self.file_data[code_f] = CodeFingerprint(
-                        code_f, self.conf.noise_t, self.conf.window_size,
-                        boilerplate_hashes, not self.conf.disable_filtering,
-                        self.conf.force_language, encoding=self.conf.encoding)
-
-                except UnicodeDecodeError:
-                    logging.warning(f"Skipping {code_f}: file not UTF-8 text")
-                    continue
+        self._boilerplate_hashes = self._get_boilerplate_hashes()
+        file_set = set(file_list)
+        with Pool(self.conf.processes) as p:
+            code_hash_iterator = p.imap_unordered(self._preprocess_code_file, file_set, 4)
+            code_hashes = list(tqdm(code_hash_iterator, bar_format= '   {l_bar}{bar}{r_bar}',
+                            disable=self.conf.silent, total=len(file_set)))
+        for code_f, fingerprint in code_hashes:
+            if fingerprint != None:
+                self.file_data[code_f] = fingerprint
 
     def _comparison_loop(self):
         """The core code used to determine code overlap. The overlap
